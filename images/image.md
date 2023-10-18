@@ -1,1 +1,0 @@
-# Here is the current collection of images waiting for classification
