@@ -1,27 +1,19 @@
-from Tree-Classification-with-Image import model
+from tkinter import *  
+import sys
+sys.path.append('C:\\Users\\Nguyen Quang Huy\\OneDrive\\Máy tính\\Tree_Classification_with_Image\\model')
+import model_AI
 
+#Define app main
+main_app = Tk()
+main_app.title("Tree Classification with Image")
+main_app.geometry("600x600")
 
-class Main(tk.Frame):
-    def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
-        self.parent = parent
-        self.initUI()
+#Define image box
+load_image = Button(main_app, text="Load Image", command=model_AI.load_data)
+load_image.pack(pady = 20)
 
-    def initUI(self):
-        self.parent.title("Main")
-        self.pack(fill=tk.BOTH, expand=1)
+plot_image = Button(main_app, text="Plot Image", command=model_AI.plot_data)    
+plot_image.pack()
 
-        self.button = tk.Button(self, text="Go to Page 1", command= load_data)
-        self.button.pack()
-
-        self.button = tk.Button(self, text="Go to Page 2", command= show_data)
-        self.button.pack()
-
-    def onButton1Click(self):
-        self.parent.switch_frame(Page1)
-    
-    def onButton2Click(self):
-        self.parent.switch_frame(Page2)
-
-Main.mainloop()
-
+#Run code 
+main_app.mainloop()
