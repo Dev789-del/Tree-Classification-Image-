@@ -12,6 +12,8 @@ from tensorflow.keras.layers import Dense, Dropout, Activation, Flatten
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 from tensorflow.keras.callbacks import TensorBoard
 import tensorflow as tf
+import os
+import shutil
 
 class Tree_Data:  
     def load_image():
@@ -48,23 +50,33 @@ class Tree_Data:
             plt.imshow(image)
             plt.show()
     def make_train_csv():
-        #Function to make train.csv
-        train_data = []
-        for filename in glob.glob('./data/train/**/*.png', recursive=True):
-            image = cv2.imread(filename)
-            image = cv2.resize(image, (70, 70))
-            image = image.flatten()
-            image = image.tolist()
-            image.append(filename.split('/')[-2])
-            train_data.append(image)
-        print("Train data loaded successfully")
-        train_data = pd.DataFrame(train_data)
-        train_data.to_csv('./data/train.csv', index=False)
-
+        #Delete train csv file if it exists
+        if os.path.exists('./model/train.csv'):
+            os.remove('./model/train.csv')
+        #Function to make train.csv from train folder in new_dataset folder with image_names and image_full_names   
+        image_names = []
+        image_labels = []
+        #Get image names and tree names
+        for filename in glob.glob('./new_dataset/train/*/*.png'):
+            image_names.append(filename.split('\\')[-1])
+            image_labels.append(filename.split('\\')[-2])
+        #Create dataframe
+        df = pd.DataFrame()
+        df['image_names'] = image_names
+        df['image_labels'] = image_labels
+        df.to_csv('./model/train.csv', index=False)
     def generate_tree_image():
-        #Delete all images in train folder of new_dataset
-        for filename in glob.glob('./new_dataset/train/*.png'):
-            os.remove(filename)
+        #Delete all folders and files in new_dataset folder
+        folder = './new_dataset/train/'
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
         #Function to generate 10 tree data images from images folder into train folder of new_dataset
         data_image = []
         for filename in glob.glob('./images/*.jpg'):
@@ -84,8 +96,12 @@ class Tree_Data:
                     horizontal_flip=True,
                     fill_mode='nearest')
                 j = 0
+
+                #Check if folder exists
+                if not os.path.exists('./new_dataset/train/' + str(name)):
+                    os.makedirs('./new_dataset/train/' + str(name))
                 #Save the image with corresponding name and format
-                for batch in datagen.flow(image, batch_size=1, save_to_dir='./new_dataset/train/', save_prefix = name, save_format = 'png'):
+                for batch in datagen.flow(image, batch_size=1, save_to_dir='./new_dataset/train/' + str(name) + '/', save_prefix = name, save_format = 'png'):
                     j += 1
                     if j == 1:
                         break
