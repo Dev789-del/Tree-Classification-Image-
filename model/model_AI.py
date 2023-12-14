@@ -39,31 +39,30 @@ class Tree_Data:
             plt.imshow(image)
             plt.show()
 
-    def test_data():
-        #Show 3 test images
-        data_test = []
-        for filename in glob.glob('./data/test/*.png'):
-            image2 = Image.open(filename)
-            data_test.append(image2)
-        print("Test data loaded successfully")
-        for image in data_test[:3]:
-            plt.imshow(image)
-            plt.show()
     def make_train_csv():
         #Delete train csv file if it exists
         if os.path.exists('./model/train.csv'):
             os.remove('./model/train.csv')
-        #Function to make train.csv from train folder in new_dataset folder with image_names and image_full_names   
+        #Define array to store image data   
         image_names = []
         image_labels = []
-        #Get image names and tree names
+        image_heights = []
+        image_widths = []
+        #Get image names and tree names, tree sizes in n x n format
         for filename in glob.glob('./new_dataset/train/*/*.png'):
             image_names.append(filename.split('\\')[-1])
             image_labels.append(filename.split('\\')[-2])
+            for image in glob.glob(filename):
+                image = cv2.imread(image)
+                image_heights.append(image.shape[0])
+                image_widths.append(image.shape[1])
+
         #Create dataframe
         df = pd.DataFrame()
         df['image_names'] = image_names
         df['image_labels'] = image_labels
+        df['image_heights'] = image_heights
+        df['image_widths'] = image_widths
         df.to_csv('./model/train.csv', index=False)
     def generate_tree_image():
         #Delete all folders and files in new_dataset folder
@@ -82,9 +81,18 @@ class Tree_Data:
         for filename in glob.glob('./images/*.jpg'):
             image = Image.open(filename)
             data_image.append(image)
-        image_names = ['orange_tree', 'Silver_birch']
-        for i in range(10):
-            for image , name in zip(data_image, image_names):
+        #Get image names from example images in images folder
+        image_names = []
+        for filename in glob.glob('./images/*.jpg'):
+            image_names.append(filename.split('\\')[-1].split('.')[0])
+        #Sort image names from A to Z based on first letter
+        image_names_sort = sorted(image_names)
+        #Check if folder exists with name in image_names, if not, create folder
+        for name in image_names:
+            if not os.path.exists('./new_dataset/train/' + str(name)):
+                os.makedirs('./new_dataset/train/' + str(name))
+        for i in range(50):
+            for image, name in zip(data_image, image_names_sort):
                 image = image.resize((299, 299))
                 image = np.array(image)
                 image = image.reshape((1, 299, 299, 3))
@@ -95,16 +103,65 @@ class Tree_Data:
                     zoom_range=0.1,
                     horizontal_flip=True,
                     fill_mode='nearest')
-                j = 0
+            #Save the generated images into tree name folder
+                for batch in datagen.flow(image, batch_size=1, save_to_dir='./new_dataset/train/' + str(name), save_prefix= name, save_format='png'):
+                    break
 
-                #Check if folder exists
-                if not os.path.exists('./new_dataset/train/' + str(name)):
-                    os.makedirs('./new_dataset/train/' + str(name))
-                #Save the image with corresponding name and format
-                for batch in datagen.flow(image, batch_size=1, save_to_dir='./new_dataset/train/' + str(name) + '/', save_prefix = name, save_format = 'png'):
-                    j += 1
-                    if j == 1:
-                        break
+    def generate_test_image():
+        #Delete all folders and files in new_dataset folder
+        folder = './new_dataset/test/'
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
+        #Make test random images from images folder
+        test_image = []
+        for filename in glob.glob('./images/*.jpg'):
+            image = Image.open(filename)
+            test_image.append(image)
+        #Generate 10 random images from images folder
+        for i in range(10):
+            for image in test_image:
+                image = image.resize((299, 299))
+                image = np.array(image)
+                image = image.reshape((1, 299, 299, 3))
+                datagen = ImageDataGenerator(
+                    rotation_range=10,
+                    width_shift_range=0.1,
+                    height_shift_range=0.1,
+                    zoom_range=0.1,
+                    horizontal_flip=True,
+                    fill_mode='nearest')
+                for batch in datagen.flow(image, batch_size=1, save_to_dir='./new_dataset/test', save_prefix= 'test', save_format='png'):
+                    break
+        
+    def make_test_csv():
+        #Delete test csv file if it exists
+        if os.path.exists('./model/test.csv'):
+            os.remove('./model/test.csv')
+        #Define array to store image data   
+        image_names = []
+        image_heights = []
+        image_widths = []
+        #Get image names and tree names, tree sizes in n x n format
+        for filename in glob.glob('./new_dataset/test/*.png'):
+            image_names.append(filename.split('\\')[-1])
+            for image in glob.glob(filename):
+                image = cv2.imread(image)
+                image_heights.append(image.shape[0])
+                image_widths.append(image.shape[1])
+
+        #Create dataframe
+        df = pd.DataFrame()
+        df['image_names'] = image_names
+        df['image_heights'] = image_heights
+        df['image_widths'] = image_widths
+        df.to_csv('./model/test.csv', index=False)
 #Set parameters
 batch_size = 64
 epochs = 30
@@ -112,13 +169,13 @@ num_classes = 10
 
 def load_data():
     #Load data from train.csv
-    train_data = pd.read_csv('./data/train.csv')
+    train_data = pd.read_csv('./model/train.csv')
     train_data = train_data.sample(frac=1).reset_index(drop=True)
     train_data.head()
 
     #Split data into train and test
-    train = train_data[:3800]
-    test = train_data[3800:]
+    train = train_data.iloc[:int(0.8*len(train_data)), :]
+    test = train_data.iloc[int(0.8*len(train_data)):, :]
 
     #Split data into X_train, y_train, X_test, y_test
     X_train = train.iloc[:, :-1].values
@@ -199,3 +256,22 @@ def predict(model):
     plt.show()
 
 
+#Describe the csv file
+def describe_csv():
+    #Load data from train.csv
+    train_data = pd.read_csv('./model/train.csv')
+    train_data = train_data.sample(frac=1).reset_index(drop=True)
+    train_data.head()
+
+    #Describe the csv file
+    print(train_data.describe())
+    print(train_data.info())
+
+#Run describe_csv function
+describe_csv()
+
+#Run test_image function
+Tree_Data.generate_test_image()
+
+#Run make_test_csv function
+Tree_Data.make_test_csv()
